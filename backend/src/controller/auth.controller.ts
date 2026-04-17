@@ -5,11 +5,13 @@ import prisma from "../utils/prisma";
 import {
     generateaccesstoken,
     generaterefreshtoken,
-    verifyaccesstoken
+    verifyaccesstoken,
+    verifyrefreshtoken
 } from '../utils/jwt'
 import { error } from "console";
  
 
+// this is the register controller
 export const register = async(req:Request,res:Response):Promise<void>=>{
 
     try{
@@ -33,19 +35,17 @@ export const register = async(req:Request,res:Response):Promise<void>=>{
     }
 }
 
+
+// this is my login controller 
 export const login = async(req:Request,res:Response):Promise<void> =>{
     try{
     const {email,password} = req.body
-
     const user = await prisma.user.findUnique({where:{email}})
-
     if(!user||!user.passwordHash){
         res.status(401).json({error:"Invalid password or email"})
         return
     }
-
     const ismatch = await bycrypt.compare(password,user.passwordHash)
-
     if(!ismatch){
         res.json({
             error:"Invalid email or password"
@@ -54,8 +54,6 @@ export const login = async(req:Request,res:Response):Promise<void> =>{
 
         return
     }
-    
-
     const accesstoken = generateaccesstoken(user.id)
     const refreshtoken = generateaccesstoken(user.id)
 
@@ -88,6 +86,53 @@ export const login = async(req:Request,res:Response):Promise<void> =>{
 catch{
     res.status(500).json({error:'Something went wrong'})
 }
-
 } 
+
+
+//this is my refreshtoken controller
+//OLD TOKEN → verify → revoke → generate NEW → store → send
+export const refresh = async(req:Request,res:Response):Promise<void> =>{
+    try{
+
+
+        const token = req.cookies?.refreshToken;
+        if(!token)
+        {
+            res.status(401).json({
+                message:"No refresh token provided"
+                
+            })
+
+            return
+        }
+       
+        //token ek variable m store kr liya agar token nh h to remove kr diya h us token ko 
+
+        let decoded;
+
+        try{
+             
+            decoded=verifyrefreshtoken(token)
+        }
+
+        catch(error){
+
+            res.status(401).json({
+                error:"Invalid or refresh token"
+            })
+        }
+
+    }
+
+
+
+    catch(error){
+        console.error("Refresh error",error);
+        res.status(500).json({
+            error:"Something went wrong"
+        })
+    }
+}
+
+
 
