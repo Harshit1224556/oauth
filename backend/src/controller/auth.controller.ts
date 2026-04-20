@@ -110,17 +110,53 @@ export const refresh = async(req:Request,res:Response):Promise<void> =>{
 
         let decoded;
 
-        try{
+        
              
             decoded=verifyrefreshtoken(token)
-        }
+        
 
-        catch(error){
+       
+
+        const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+
+        const stored = await prisma.refreshToken.findUnique({where:{tokenHash}})
+
+        if(!stored || stored.revoked || stored.expiresAt<new Date()){
 
             res.status(401).json({
-                error:"Invalid or refresh token"
+                error:'Invalid refresh token'
             })
         }
+
+        await prisma.refreshToken.update({
+            where:{tokenHash},
+            data:{revoked:true}
+        })
+
+        const newaccesstoken = generateaccesstoken(decoded.userId);
+        const newRefreshtoken = generaterefreshtoken(decoded.userId);
+
+        const newTokenHash = crypto.createHash('sha256').update(newrefreshtoken).digest('hex');
+
+        await prisma.refreshToken.create({
+
+            data:{
+                userId:decoded.userId,
+                tokenHash:newTokenHash,
+                 expiresAt:new Date(Date.now()*7*24*60*60*1000)
+
+            },
+        })
+
+        res.cookie('refreshToken',newRefreshtoken,{
+            httpOnly:true,
+            sameSite:'strict',
+            maxAge:7*24*60*60*1000
+        })
+
+         res.json({
+            accesstoken:newaccesstoken
+         })
 
     }
 
@@ -134,5 +170,66 @@ export const refresh = async(req:Request,res:Response):Promise<void> =>{
     }
 }
 
+
+
+
+export const logout = async(req:Request,res:Response):Promise<void> =>{
+ 
+       try{
+            
+        const token = req.cookies.refreshToken
+        if(token){
+            const tokenHash = crypto.createHash('sha256').update(token).digest('hex')
+            await prisma.refreshToken.updateMany({
+                where:{tokenHash},
+                data:{revoked:true}
+            })
+        }
+        res.clearCookie('refreshToken')
+
+        res.json({
+            message:"Logout successfully";
+        })
+       }
+
+       catch{
+        res.status(500).json({
+            message:"Something went wrong"
+        })
+       }
+
+}
+
+
+export const getme = async(req:Request,res:Response):Promise<void> =>{
+
+    try{
+         const user =  await prisma.user.findUnique({
+            where:{id:req.userId},
+            select:{
+               id:true,
+               email:true,
+               isVerified:true,
+               createdAt:true 
+            }
+          })
+
+          if(!user){
+            res.status(404).json({
+                message:'user not found'
+            })
+            return
+          }
+
+          res.json({user})
+
+    }
+    catch{
+        res.status(500).json({
+            error:'Something went wrong'
+        })
+    }
+
+}
 
 
