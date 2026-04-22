@@ -136,7 +136,7 @@ export const refresh = async(req:Request,res:Response):Promise<void> =>{
         const newaccesstoken = generateaccesstoken(decoded.userId);
         const newRefreshtoken = generaterefreshtoken(decoded.userId);
 
-        const newTokenHash = crypto.createHash('sha256').update(newrefreshtoken).digest('hex');
+        const newTokenHash = crypto.createHash('sha256').update(newRefreshtoken).digest('hex');
 
         await prisma.refreshToken.create({
 
@@ -188,7 +188,7 @@ export const logout = async(req:Request,res:Response):Promise<void> =>{
         res.clearCookie('refreshToken')
 
         res.json({
-            message:"Logout successfully";
+            message:"Logout successfully"
         })
        }
 
